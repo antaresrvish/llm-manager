@@ -11,7 +11,7 @@ import {
 
 export class OpenAIProvider extends AbstractProvider {
   constructor(config: ProviderConfig) {
-    super(ProviderType.OPENAI, config, 'https://api.openadi.com/v1');
+    super(ProviderType.OPENAI, config, 'https://api.openai.com/v1');
   }
 
   async healthCheck(): Promise<HealthCheckResult> {

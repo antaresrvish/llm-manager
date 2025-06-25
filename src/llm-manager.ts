@@ -17,32 +17,14 @@ export class LLMManager {
   private healthChecker: HealthChecker;
   private config: LLMManagerConfig;
 
-  constructor(config?: LLMManagerConfig) {
-    this.config = config || this.getDefaultConfig();
+  constructor(config: LLMManagerConfig) {
+    if (!config) {
+      throw new Error('Configuration is required. Please provide a valid LLMManagerConfig.');
+    }
+    this.config = config;
     this.healthChecker = new HealthChecker();
     this.initializeProviders();
     this.startHealthChecking();
-  }
-
-  private getDefaultConfig(): LLMManagerConfig {
-    return {
-      extractor: {
-        default_model: 'gpt-4',
-        retry: 10,
-        retry_delay: 1000,
-        other_models: {
-          'claude': 'claude-3-sonnet-20240229',
-          'gemini': 'gemini-1.5-flash',
-          'azure': 'gpt-4'
-        }
-      },
-      translator: {
-        default_model: 'gpt-4',
-        retry: 10,
-        retry_delay: 1000,
-        other_models: {}
-      }
-    };
   }
 
   private initializeProviders(): void {
@@ -204,6 +186,14 @@ export class LLMManager {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           const result = await operation(provider);
+          
+          // Log which model and provider was used for successful response
+          const modelName = this.getModelForProvider(providerType, serviceKey);
+          const serviceTypeStr = serviceType === ServiceType.TEXT ? 'Chat' : 
+                                serviceType === ServiceType.TTS ? 'TTS' : 
+                                serviceType === ServiceType.STT ? 'STT' : 'Unknown';
+          console.log(`✅ ${serviceTypeStr} response received from ${providerType} using model: ${modelName}`);
+          
           return result;
         } catch (error) {
           lastError = error instanceof Error ? error : new Error('Unknown error');
@@ -234,9 +224,29 @@ export class LLMManager {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  private getModelForProvider(providerType: ProviderType, serviceKey: string): string {
+    const serviceConfig = this.config[serviceKey];
+    if (!serviceConfig) {
+      return 'unknown';
+    }
+
+    // If this is the default provider for the service, return the default model
+    const defaultProvider = this.detectProviderFromModel(serviceConfig.default_model);
+    if (providerType === defaultProvider) {
+      return serviceConfig.default_model;
+    }
+
+    // Otherwise, check if it's in other_models
+    if (serviceConfig.other_models && serviceConfig.other_models[providerType]) {
+      return serviceConfig.other_models[providerType];
+    }
+
+    // Fallback to default model
+    return serviceConfig.default_model;
+  }
+
   // Public API methods
   async chat(serviceKey: string, options: ChatOptions): Promise<string> {
-    console.log(this.config)
     return this.executeWithRetry(
       serviceKey,
       (provider) => provider.chat(options),
@@ -322,5 +332,8 @@ export class LLMManager {
 
 // Convenience function to create a chat instance
 export function createChat(config: LLMManagerConfig, options?: any): LLMManager {
+  if (!config) {
+    throw new Error('Configuration is required. Please provide a valid LLMManagerConfig.');
+  }
   return new LLMManager(config);
 }
