@@ -20,14 +20,33 @@ export abstract class AbstractProvider implements BaseProvider {
     baseURL?: string
   ) {
     this.config = config;
+    
+    // Get the appropriate API key for this provider
+    const apiKey = this.getProviderApiKey(config);
+    
     this.client = axios.create({
       baseURL: baseURL || config.endpoint,
       headers: {
-        'Authorization': `Bearer ${config.api_key}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       timeout: 30000
     });
+  }
+
+  protected getProviderApiKey(config: ProviderConfig): string {
+    switch (this.name) {
+      case ProviderType.OPENAI:
+        return config.openai_key || '';
+      case ProviderType.CLAUDE:
+        return config.claude_key || '';
+      case ProviderType.GEMINI:
+        return config.gemini_key || '';
+      case ProviderType.AZURE:
+        return config.azure_key || '';
+      default:
+        return config.openai_key || '';
+    }
   }
 
   abstract healthCheck(): Promise<HealthCheckResult>;

@@ -44,24 +44,26 @@ import { createChat, LLMManager } from 'llm-manager';
 dotenv.config();
 
 // Create configuration (should be done outside the package)
-const extractorConfig = {
-  extractor: {
+const testConfig = {
+  test: {
     default_model: 'gpt-4',
     retry: 10,
     retry_delay: 1000,
+    openai_key: process.env.OPENAI_API_KEY,
+    gemini_key: process.env.GOOGLE_API_KEY,
+    claude_key: process.env.ANTHROPIC_API_KEY,
     other_models: {
       'claude': 'claude-3-sonnet-20240229',
       'gemini': 'gemini-1.5-flash',
-    },
-    api_key: process.env.OPENAI_API_KEY
+    }
   }
 };
 
 // Create chat instance
-const extractorChat = createChat(extractorConfig);
+const extractorChat = createChat(testConfig);
 
 // Use for text generation
-const response = await extractorChat.chat('extractor', {
+const response = await extractorChat.chat('test', {
   messages: [
     { role: 'user', content: 'Extract the main topics from this text: AI is transforming healthcare.' }
   ]
@@ -80,36 +82,8 @@ interface ProviderConfig {
   retry: number;               // Number of retry attempts
   retry_delay: number;         // Delay between retries (ms)
   other_models?: Record<string, string>; // Fallback models
-  api_key?: string;           // API key for the provider
   endpoint?: string;          // Custom endpoint (for Azure)
 }
-```
-
-### Service Configuration
-
-```typescript
-const config = {
-  extractor: {
-    default_model: 'gpt-4',
-    retry: 10,
-    retry_delay: 1000,
-    other_models: {
-      'claude': 'claude-3-sonnet-20240229',
-      'gemini': 'gemini-1.5-flash',
-      'azure': 'gpt-4'
-    },
-    api_key: process.env.OPENAI_API_KEY
-  },
-  translator: {
-    default_model: 'gpt-4',
-    retry: 5,
-    retry_delay: 500,
-    other_models: {
-      'claude': 'claude-3-haiku-20240307'
-    },
-    api_key: process.env.OPENAI_API_KEY
-  }
-};
 ```
 
 ## API Reference

@@ -15,8 +15,8 @@ export class AzureProvider extends AbstractProvider {
     super(ProviderType.AZURE, config, baseURL);
     
     // Override headers for Azure
-    if (config.api_key) {
-      this.client.defaults.headers['api-key'] = config.api_key;
+    if (config.azure_key) {
+      this.client.defaults.headers['api-key'] = config.azure_key;
     }
     this.client.defaults.params = { 'api-version': '2024-02-15-preview' };
     delete this.client.defaults.headers['Authorization'];
@@ -26,7 +26,7 @@ export class AzureProvider extends AbstractProvider {
     const startTime = Date.now();
     try {
       // Azure uses deployment-specific endpoints
-      const deploymentName = this.config.default_model || 'gpt-4';
+      const deploymentName = this.getCompatibleModel();
       const response = await this.client.post(`/${deploymentName}/chat/completions`, {
         messages: [{ role: 'user', content: 'Hi' }],
         max_tokens: 1,
@@ -53,7 +53,7 @@ export class AzureProvider extends AbstractProvider {
   }
 
   async chat(options: ChatOptions): Promise<string> {
-    const deploymentName = this.config.default_model || 'gpt-4';
+    const deploymentName = this.getCompatibleModel();
     
     const payload: any = {
       messages: options.messages,
@@ -149,5 +149,20 @@ export class AzureProvider extends AbstractProvider {
     );
 
     return response.data.text || '';
+  }
+
+  private getCompatibleModel(): string {
+    // Check if there's a specific Azure model in other_models
+    if (this.config.other_models && this.config.other_models[ProviderType.AZURE]) {
+      return this.config.other_models[ProviderType.AZURE];
+    }
+    
+    // Use default model (which should be the Azure deployment name)
+    if (this.config.default_model) {
+      return this.config.default_model;
+    }
+    
+    // Default to a common Azure deployment name
+    return 'gpt-4';
   }
 }

@@ -31,7 +31,11 @@ export interface ProviderConfig {
   retry: number;
   retry_delay: number;
   other_models?: Record<string, string>;
-  api_key?: string;
+  openai_key?: string; // OpenAI API key
+  gemini_key?: string; // Gemini API key
+  claude_key?: string; // Claude API key
+  azure_key?: string; // Azure API key
+  // Claude specific options
   endpoint?: string;
   // Gemini specific options
   response_mime_type?: string; // For structured output

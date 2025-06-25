@@ -12,8 +12,8 @@ export class ClaudeProvider extends AbstractProvider {
     super(ProviderType.CLAUDE, config, 'https://api.anthropic.com/v1');
     
     // Override headers for Claude
-    if (config.api_key) {
-      this.client.defaults.headers['x-api-key'] = config.api_key;
+    if (config.claude_key) {
+      this.client.defaults.headers['x-api-key'] = config.claude_key;
     }
     this.client.defaults.headers['anthropic-version'] = '2023-06-01';
     delete this.client.defaults.headers['Authorization'];
@@ -69,16 +69,18 @@ export class ClaudeProvider extends AbstractProvider {
   }
 
   private getCompatibleModel(): string {
-    const configModel = this.config.default_model?.toLowerCase() || '';
-    
-    // If it's already a Claude model, use it as is
-    if (configModel.includes('claude')) {
-      return this.config.default_model;
+    // Check if there's a specific Claude model in other_models
+    if (this.config.other_models && this.config.other_models[ProviderType.CLAUDE]) {
+      const claudeModel = this.config.other_models[ProviderType.CLAUDE].toLowerCase();
+      if (claudeModel.includes('claude')) {
+        return this.config.other_models[ProviderType.CLAUDE];
+      }
     }
     
-    // Check if there's a Claude model specified in other_models
-    if (this.config.other_models && this.config.other_models.claude) {
-      return this.config.other_models.claude;
+    // If default model is Claude compatible, use it
+    const defaultModel = this.config.default_model?.toLowerCase() || '';
+    if (defaultModel.includes('claude')) {
+      return this.config.default_model;
     }
     
     // Default to a compatible Claude model

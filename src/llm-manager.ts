@@ -78,16 +78,16 @@ export class LLMManager {
         // Set the appropriate API key based on provider type
         switch (providerType) {
           case ProviderType.OPENAI:
-            providerConfig.api_key = config.api_key || process.env.OPENAI_API_KEY;
+            providerConfig.openai_key = process.env.OPENAI_API_KEY || config.openai_key;
             break;
           case ProviderType.CLAUDE:
-            providerConfig.api_key = process.env.ANTHROPIC_API_KEY || config.api_key;
+            providerConfig.claude_key = process.env.ANTHROPIC_API_KEY || config.claude_key;
             break;
           case ProviderType.GEMINI:
-            providerConfig.api_key = process.env.GOOGLE_API_KEY || config.api_key;
+            providerConfig.gemini_key = process.env.GOOGLE_API_KEY || config.gemini_key;
             break;
           case ProviderType.AZURE:
-            providerConfig.api_key = process.env.AZURE_OPENAI_API_KEY || config.api_key;
+            providerConfig.azure_key = process.env.AZURE_OPENAI_API_KEY || config.azure_key;
             providerConfig.endpoint = process.env.AZURE_OPENAI_ENDPOINT || config.endpoint;
             break;
         }
@@ -236,13 +236,24 @@ export class LLMManager {
       return serviceConfig.default_model;
     }
 
-    // Otherwise, check if it's in other_models
+    // Check if there's a specific model for this provider in other_models
     if (serviceConfig.other_models && serviceConfig.other_models[providerType]) {
       return serviceConfig.other_models[providerType];
     }
 
-    // Fallback to default model
-    return serviceConfig.default_model;
+    // Fallback to provider-specific default models
+    switch (providerType) {
+      case ProviderType.OPENAI:
+        return 'gpt-4o-mini';
+      case ProviderType.CLAUDE:
+        return 'claude-3-sonnet-20240229';
+      case ProviderType.GEMINI:
+        return 'gemini-1.5-flash';
+      case ProviderType.AZURE:
+        return serviceConfig.default_model || 'gpt-4'; // Azure uses deployment names
+      default:
+        return serviceConfig.default_model;
+    }
   }
 
   // Public API methods

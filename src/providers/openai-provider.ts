@@ -86,10 +86,17 @@ export class OpenAIProvider extends AbstractProvider {
   }
 
   private getCompatibleModel(): string {
-    const configModel = this.config.default_model.toLowerCase();
+    // Check if there's a specific OpenAI model in other_models
+    if (this.config.other_models && this.config.other_models[ProviderType.OPENAI]) {
+      const openaiModel = this.config.other_models[ProviderType.OPENAI].toLowerCase();
+      if (openaiModel.includes('gpt') || openaiModel.includes('chatgpt')) {
+        return this.config.other_models[ProviderType.OPENAI];
+      }
+    }
     
-    // If it's already an OpenAI model, use it as is
-    if (configModel.includes('gpt') || configModel.includes('chatgpt')) {
+    // If default model is OpenAI compatible, use it
+    const defaultModel = this.config.default_model?.toLowerCase() || '';
+    if (defaultModel.includes('gpt') || defaultModel.includes('chatgpt')) {
       return this.config.default_model;
     }
     

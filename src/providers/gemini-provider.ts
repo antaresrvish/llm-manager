@@ -18,7 +18,7 @@ export class GeminiProvider extends AbstractProvider {
   async healthCheck(): Promise<HealthCheckResult> {
     const startTime = Date.now();
     try {
-      const response = await this.client.get(`/models?key=${this.config.api_key}`);
+      const response = await this.client.get(`/models?key=${this.config.gemini_key}`);
       const responseTime = Date.now() - startTime;
       
       return {
@@ -68,7 +68,7 @@ export class GeminiProvider extends AbstractProvider {
     }
 
     const response = await this.client.post(
-      `/models/${model}:generateContent?key=${this.config.api_key}`,
+      `/models/${model}:generateContent?key=${this.config.gemini_key}`,
       payload
     );
 
@@ -84,16 +84,18 @@ export class GeminiProvider extends AbstractProvider {
   }
 
   private getCompatibleModel(): string {
-    const configModel = this.config.default_model?.toLowerCase() || '';
-    
-    // If it's already a Gemini model, use it as is
-    if (configModel.includes('gemini') || configModel.includes('bard')) {
-      return this.config.default_model;
+    // Check if there's a specific Gemini model in other_models
+    if (this.config.other_models && this.config.other_models[ProviderType.GEMINI]) {
+      const geminiModel = this.config.other_models[ProviderType.GEMINI].toLowerCase();
+      if (geminiModel.includes('gemini') || geminiModel.includes('bard')) {
+        return this.config.other_models[ProviderType.GEMINI];
+      }
     }
     
-    // Check if there's a Gemini model specified in other_models
-    if (this.config.other_models && this.config.other_models.gemini) {
-      return this.config.other_models.gemini;
+    // If default model is Gemini compatible, use it
+    const defaultModel = this.config.default_model?.toLowerCase() || '';
+    if (defaultModel.includes('gemini') || defaultModel.includes('bard')) {
+      return this.config.default_model;
     }
     
     // Default to a compatible Gemini model
