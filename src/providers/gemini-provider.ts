@@ -39,7 +39,7 @@ export class GeminiProvider extends AbstractProvider {
   }
 
   async chat(options: ChatOptions): Promise<string> {
-    const model = this.config.default_model || 'gemini-1.5-flash';
+    const model = this.getCompatibleModel();
     
     // Convert messages to Gemini format
     const contents = options.messages.map(msg => ({
@@ -47,7 +47,7 @@ export class GeminiProvider extends AbstractProvider {
       parts: [{ text: msg.content }]
     }));
 
-    const payload = {
+    const payload: any = {
       contents,
       generationConfig: {
         temperature: options.temperature || 0.7,
@@ -55,11 +55,65 @@ export class GeminiProvider extends AbstractProvider {
       }
     };
 
+    // Add structured output support for Gemini
+    const responseMimeType = options.response_mime_type || this.config.response_mime_type;
+    const responseSchema = options.response_schema || this.config.response_schema;
+    
+    if (responseMimeType) {
+      payload.generationConfig.responseMimeType = responseMimeType;
+    }
+    
+    if (responseSchema) {
+      payload.generationConfig.responseSchema = responseSchema;
+    }
+
     const response = await this.client.post(
       `/models/${model}:generateContent?key=${this.config.api_key}`,
       payload
     );
 
-    return response.data.candidates[0]?.content?.parts[0]?.text || '';
+    let result = response.data.candidates[0]?.content?.parts[0]?.text || '';
+    
+    // Clean JSON response if requested
+    const shouldCleanJson = options.clean_json_response ?? this.config.clean_json_response ?? true;
+    if (shouldCleanJson) {
+      result = this.cleanJsonResponse(result);
+    }
+    
+    return result;
+  }
+
+  private getCompatibleModel(): string {
+    const configModel = this.config.default_model?.toLowerCase() || '';
+    
+    // If it's already a Gemini model, use it as is
+    if (configModel.includes('gemini') || configModel.includes('bard')) {
+      return this.config.default_model;
+    }
+    
+    // Check if there's a Gemini model specified in other_models
+    if (this.config.other_models && this.config.other_models.gemini) {
+      return this.config.other_models.gemini;
+    }
+    
+    // Default to a compatible Gemini model
+    return 'gemini-1.5-flash';
+  }
+
+  private cleanJsonResponse(text: string): string {
+    // Remove markdown code blocks for JSON
+    text = text.replace(/```json\s*/gi, '');
+    text = text.replace(/```\s*$/gi, '');
+    
+    // Remove any leading/trailing whitespace
+    text = text.trim();
+    
+    // Try to find JSON object/array and extract it
+    const jsonMatch = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+    if (jsonMatch) {
+      return jsonMatch[0];
+    }
+    
+    return text;
   }
 }

@@ -1,6 +1,6 @@
 {
-  "name": "llm-manager",
-  "version": "1.0.0",
+  "name": "llm-manager-lib",
+  "version": "1.0.1",
   "description": "Dynamic AI model manager with failover, retry logic, and health checks",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -22,7 +22,7 @@
     "gemini",
     "azure"
   ],
-  "author": "",
+  "author": "antaresrvish",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {

@@ -51,11 +51,17 @@ export class LLMManager {
       const serviceConfig = this.config[serviceKey];
       
       // Determine which provider to use for default model
-      const defaultProvider = this.detectProviderFromModel(serviceConfig.default_model);
+      let defaultProvider = this.detectProviderFromModel(serviceConfig.default_model);
+      
+      // Override detection if Azure endpoint is provided
+      if (serviceConfig.endpoint && serviceConfig.endpoint.includes('openai.azure.com')) {
+        defaultProvider = ProviderType.AZURE;
+      }
+      
       this.createProviderIfNotExists(defaultProvider, serviceConfig);
       
-      // Create providers for other models
-      if (serviceConfig.other_models) {
+      // Create providers for other models ONLY if they are specified
+      if (serviceConfig.other_models && Object.keys(serviceConfig.other_models).length > 0) {
         Object.keys(serviceConfig.other_models).forEach(providerKey => {
           const providerType = providerKey as ProviderType;
           this.createProviderIfNotExists(providerType, serviceConfig);
@@ -106,6 +112,9 @@ export class LLMManager {
         
         const provider = ProviderFactory.createProvider(providerType, providerConfig);
         this.providers.set(providerType, provider);
+        
+        // Initialize provider in health checker
+        this.healthChecker.initializeProvider(providerType);
       } catch (error) {
         console.warn(`Failed to initialize provider ${providerType}:`, error);
       }
@@ -140,7 +149,13 @@ export class LLMManager {
     const providerPriority: ProviderType[] = [];
     
     // Add default provider first (detect from model name)
-    const defaultProvider = this.detectProviderFromModel(serviceConfig.default_model);
+    let defaultProvider = this.detectProviderFromModel(serviceConfig.default_model);
+    
+    // Override detection if Azure endpoint is provided
+    if (serviceConfig.endpoint && serviceConfig.endpoint.includes('openai.azure.com')) {
+      defaultProvider = ProviderType.AZURE;
+    }
+    
     providerPriority.push(defaultProvider);
     
     // Add other providers in order
@@ -153,11 +168,27 @@ export class LLMManager {
       });
     }
 
-    // Sort by health status
-    const sortedProviders = providerPriority.sort((a, b) => {
+    // Filter providers that actually exist (were initialized)
+    const availableProviders = providerPriority.filter(providerType => 
+      this.providers.has(providerType)
+    );
+
+    // Sort by health status, but keep the priority order for providers with same health status
+    const sortedProviders = availableProviders.sort((a, b) => {
       const aIndex = orderedProviders.indexOf(a);
       const bIndex = orderedProviders.indexOf(b);
-      return aIndex - bIndex;
+      
+      // If both providers are in ordered list, use health-based order
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+      
+      // If only one is in ordered list, prefer that one
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+      
+      // If neither is in ordered list, keep original priority order
+      return availableProviders.indexOf(a) - availableProviders.indexOf(b);
     });
 
     let lastError: Error | null = null;
@@ -205,6 +236,7 @@ export class LLMManager {
 
   // Public API methods
   async chat(serviceKey: string, options: ChatOptions): Promise<string> {
+    console.log(this.config)
     return this.executeWithRetry(
       serviceKey,
       (provider) => provider.chat(options),

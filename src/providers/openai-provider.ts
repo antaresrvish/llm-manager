@@ -11,13 +11,20 @@ import {
 
 export class OpenAIProvider extends AbstractProvider {
   constructor(config: ProviderConfig) {
-    super(ProviderType.OPENAI, config, 'https://api.openai.com/v1');
+    super(ProviderType.OPENAI, config, 'https://api.openadi.com/v1');
   }
 
   async healthCheck(): Promise<HealthCheckResult> {
     const startTime = Date.now();
     try {
-      const response = await this.client.get('/models');
+      // Use a simple completion request instead of /models endpoint
+      const response = await this.client.post('/chat/completions', {
+        model: this.getCompatibleModel(),
+        messages: [{ role: 'user', content: 'Hi' }],
+        max_tokens: 1,
+        temperature: 0
+      });
+      
       const responseTime = Date.now() - startTime;
       
       return {
@@ -38,16 +45,73 @@ export class OpenAIProvider extends AbstractProvider {
   }
 
   async chat(options: ChatOptions): Promise<string> {
-    const payload = {
-      model: this.config.default_model,
+    const model = this.getCompatibleModel();
+    
+    const payload: any = {
+      model: model,
       messages: options.messages,
       temperature: options.temperature || 0.7,
       max_tokens: options.maxTokens || 1000,
       stream: options.stream || false
     };
 
+    // OpenAI structured output support (only for compatible models)
+    if (options.response_schema || this.config.response_schema) {
+      // Only models like gpt-4o, gpt-4o-mini support structured output
+      if (model.includes('gpt-4o') || model.includes('gpt-3.5') || model === 'gpt-4-turbo') {
+        payload.response_format = {
+          type: "json_schema",
+          json_schema: {
+            name: "response",
+            schema: options.response_schema || this.config.response_schema
+          }
+        };
+      } else {
+        // For older models, just request JSON in the message
+        const lastMessage = payload.messages[payload.messages.length - 1];
+        lastMessage.content += '\n\nPlease respond in JSON format.';
+      }
+    }
+
     const response = await this.client.post('/chat/completions', payload);
-    return response.data.choices[0]?.message?.content || '';
+    let result = response.data.choices[0]?.message?.content || '';
+    
+    // Clean JSON response if requested
+    const shouldCleanJson = options.clean_json_response ?? this.config.clean_json_response ?? false;
+    if (shouldCleanJson) {
+      result = this.cleanJsonResponse(result);
+    }
+    
+    return result;
+  }
+
+  private getCompatibleModel(): string {
+    const configModel = this.config.default_model.toLowerCase();
+    
+    // If it's already an OpenAI model, use it as is
+    if (configModel.includes('gpt') || configModel.includes('chatgpt')) {
+      return this.config.default_model;
+    }
+    
+    // Default to a compatible OpenAI model that supports structured output
+    return 'gpt-4o-mini';
+  }
+
+  private cleanJsonResponse(text: string): string {
+    // Remove markdown code blocks for JSON
+    text = text.replace(/```json\s*/gi, '');
+    text = text.replace(/```\s*$/gi, '');
+    
+    // Remove any leading/trailing whitespace
+    text = text.trim();
+    
+    // Try to find JSON object/array and extract it
+    const jsonMatch = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+    if (jsonMatch) {
+      return jsonMatch[0];
+    }
+    
+    return text;
   }
 
   async tts(options: TTSOptions): Promise<Buffer> {

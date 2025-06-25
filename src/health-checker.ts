@@ -7,25 +7,23 @@ export class HealthChecker {
 
   constructor(intervalMs: number = 60000) {
     this.intervalMs = intervalMs;
-    this.initializeHealthTable();
+    // Don't initialize all providers by default
   }
 
-  private initializeHealthTable(): void {
-    const providers = [
-      ProviderType.OPENAI,
-      ProviderType.CLAUDE,
-      ProviderType.GEMINI,
-      ProviderType.AZURE
-    ];
+  public initializeProvider(provider: ProviderType): void {
+    if (!this.healthTable.has(provider)) {
+      const existingProviders = Array.from(this.healthTable.values());
+      const nextPriority = existingProviders.length > 0 
+        ? Math.max(...existingProviders.map(p => p.priority)) + 1 
+        : 1;
 
-    providers.forEach((provider, index) => {
       this.healthTable.set(provider, {
         provider,
         status: HealthStatus.UNKNOWN,
         lastChecked: new Date(),
-        priority: index + 1 // Default priority order
+        priority: nextPriority
       });
-    });
+    }
   }
 
   public updateHealth(result: HealthCheckResult): void {

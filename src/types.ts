@@ -33,6 +33,11 @@ export interface ProviderConfig {
   other_models?: Record<string, string>;
   api_key?: string;
   endpoint?: string;
+  // Gemini specific options
+  response_mime_type?: string; // For structured output
+  response_schema?: object; // JSON schema for structured output
+  // General options
+  clean_json_response?: boolean; // Remove markdown formatting from JSON
 }
 
 export interface LLMManagerConfig {
@@ -57,6 +62,10 @@ export interface ChatOptions {
   temperature?: number;
   maxTokens?: number;
   stream?: boolean;
+  // Structured output options
+  response_mime_type?: string;
+  response_schema?: object;
+  clean_json_response?: boolean;
 }
 
 export interface TTSOptions {

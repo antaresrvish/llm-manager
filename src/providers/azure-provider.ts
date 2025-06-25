@@ -27,8 +27,10 @@ export class AzureProvider extends AbstractProvider {
     try {
       // Azure uses deployment-specific endpoints
       const deploymentName = this.config.default_model || 'gpt-4';
-      const response = await this.client.get(`/${deploymentName}/chat/completions`, {
-        params: { 'api-version': '2024-02-15-preview' }
+      const response = await this.client.post(`/${deploymentName}/chat/completions`, {
+        messages: [{ role: 'user', content: 'Hi' }],
+        max_tokens: 1,
+        temperature: 0
       });
       
       const responseTime = Date.now() - startTime;
@@ -53,19 +55,55 @@ export class AzureProvider extends AbstractProvider {
   async chat(options: ChatOptions): Promise<string> {
     const deploymentName = this.config.default_model || 'gpt-4';
     
-    const payload = {
+    const payload: any = {
       messages: options.messages,
       temperature: options.temperature || 0.7,
       max_tokens: options.maxTokens || 1000,
       stream: options.stream || false
     };
 
+    // Azure structured output support (for compatible models)
+    if (options.response_schema || this.config.response_schema) {
+      payload.response_format = {
+        type: "json_schema",
+        json_schema: {
+          name: "response",
+          schema: options.response_schema || this.config.response_schema
+        }
+      };
+    }
+
     const response = await this.client.post(
       `/${deploymentName}/chat/completions`,
       payload
     );
 
-    return response.data.choices[0]?.message?.content || '';
+    let result = response.data.choices[0]?.message?.content || '';
+    
+    // Clean JSON response if requested
+    const shouldCleanJson = options.clean_json_response ?? this.config.clean_json_response ?? false;
+    if (shouldCleanJson) {
+      result = this.cleanJsonResponse(result);
+    }
+    
+    return result;
+  }
+
+  private cleanJsonResponse(text: string): string {
+    // Remove markdown code blocks for JSON
+    text = text.replace(/```json\s*/gi, '');
+    text = text.replace(/```\s*$/gi, '');
+    
+    // Remove any leading/trailing whitespace
+    text = text.trim();
+    
+    // Try to find JSON object/array and extract it
+    const jsonMatch = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+    if (jsonMatch) {
+      return jsonMatch[0];
+    }
+    
+    return text;
   }
 
   async tts(options: TTSOptions): Promise<Buffer> {
