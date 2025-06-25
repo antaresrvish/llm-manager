@@ -1,6 +1,6 @@
 {
   "name": "llm-manager-lib",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Dynamic AI model manager with failover, retry logic, and health checks",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

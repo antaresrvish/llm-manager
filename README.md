@@ -9,6 +9,7 @@ A dynamic AI model manager with automatic failover, retry logic, and health chec
 - **Retry Logic**: Configurable retry attempts with delays
 - **Health Monitoring**: Automatic health checks with priority reordering
 - **Service Types**: Support for text, TTS (Text-to-Speech), and STT (Speech-to-Text)
+- **Global Settings**: Config-level parameters applied to all models automatically
 - **Extensible**: Easy to add new providers
 - **TypeScript**: Full TypeScript support with comprehensive type definitions
 
@@ -50,27 +51,93 @@ const testConfig = {
     retry: 10,
     retry_delay: 1000,
     openai_key: process.env.OPENAI_API_KEY,
-    gemini_key: process.env.GOOGLE_API_KEY,
-    claude_key: process.env.ANTHROPIC_API_KEY,
     other_models: {
-      'claude': 'claude-3-sonnet-20240229',
-      'gemini': 'gemini-1.5-flash',
+      claude: 'claude-3-haiku-20240307',
+      gemini: 'gemini-1.5-flash',
+      azure: 'gpt-4' // deployment name
     }
   }
 };
 
-// Create chat instance
-const extractorChat = createChat(testConfig);
+// Create the LLM manager
+const manager = new LLMManager(testConfig);
 
-// Use for text generation
-const response = await extractorChat.chat('test', {
+// Send a message
+const response = await manager.chat('test', {
   messages: [
-    { role: 'user', content: 'Extract the main topics from this text: AI is transforming healthcare.' }
-  ]
+    { role: 'user', content: 'Hello! How are you?' }
+  ],
+  temperature: 0.7,
+  maxTokens: 1000
 });
 
 console.log(response);
+
+// Clean up when done
+manager.destroy();
 ```
+
+## Global Settings
+
+You can set global parameters at the configuration level that will automatically apply to all models within that service configuration:
+
+```typescript
+const config = {
+  advert: {
+    default_model: "gpt-4o",
+    retry: 3,
+    retry_delay: 1000,
+    openai_key: process.env.OPENAI_API_KEY,
+    gemini_key: process.env.GOOGLE_API_KEY,
+    
+    // Global settings - applied to ALL models in this config
+    temperature: 0.4,     // Applies to both default_model and other_models
+    top_p: 0.2,          // Applies to both default_model and other_models  
+    max_tokens: 2000,    // Applies to both default_model and other_models
+    clean_json_response: true,
+    
+    other_models: {
+      'gemini': 'gemini-1.5-flash'  // Will use the global settings above
+    }
+  },
+  customer_service: {
+    default_model: "claude-3-sonnet-20240229",
+    claude_key: process.env.ANTHROPIC_API_KEY,
+    
+    // Different global settings for this service
+    temperature: 0.7,    // Different from advert service
+    top_p: 0.95,
+    max_tokens: 1500,
+    
+    other_models: {
+      'openai': 'gpt-4o-mini'  // Will use the customer_service global settings
+    }
+  }
+};
+
+// Usage - global settings are automatically applied
+await manager.chat('advert', {
+  messages: [{ role: 'user', content: 'Write an ad copy' }]
+  // Will use: temperature=0.4, top_p=0.2, max_tokens=2000
+});
+
+// You can still override global settings per request
+await manager.chat('advert', {
+  messages: [{ role: 'user', content: 'Write creative ad copy' }],
+  temperature: 0.9  // Overrides global temperature of 0.4
+  // Will use: temperature=0.9, top_p=0.2, max_tokens=2000
+});
+```
+
+**Supported Global Settings:**
+- `temperature`: Controls randomness (0.0 to 2.0)
+- `top_p`: Controls nucleus sampling (0.0 to 1.0)
+- `max_tokens`: Maximum tokens to generate
+- `clean_json_response`: Remove markdown from JSON responses
+- `response_mime_type`: MIME type for structured responses (Gemini)
+- `response_schema`: JSON schema for structured responses
+
+See [Global Settings Documentation](./GLOBAL_SETTINGS.md) for detailed information.
 
 ## Configuration
 

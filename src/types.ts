@@ -42,6 +42,10 @@ export interface ProviderConfig {
   response_schema?: object; // JSON schema for structured output
   // General options
   clean_json_response?: boolean; // Remove markdown formatting from JSON
+  // Global model parameters - applied to all models in this config
+  temperature?: number;
+  top_p?: number;
+  max_tokens?: number;
 }
 
 export interface LLMManagerConfig {
@@ -64,6 +68,7 @@ export interface ChatMessage {
 export interface ChatOptions {
   messages: ChatMessage[];
   temperature?: number;
+  top_p?: number;
   maxTokens?: number;
   stream?: boolean;
   // Structured output options

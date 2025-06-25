@@ -49,18 +49,26 @@ export class ClaudeProvider extends AbstractProvider {
   }
 
   async chat(options: ChatOptions): Promise<string> {
-    const payload = {
+    // Merge global config parameters with specific options
+    const mergedOptions = this.mergeConfigWithOptions(options);
+    
+    const payload: any = {
       model: this.getCompatibleModel(),
-      max_tokens: options.maxTokens || 1000,
-      messages: options.messages,
-      temperature: options.temperature || 0.7
+      max_tokens: mergedOptions.maxTokens || 1000,
+      messages: mergedOptions.messages,
+      temperature: mergedOptions.temperature || 0.7
     };
+
+    // Add top_p if specified (Claude supports top_p)
+    if (mergedOptions.top_p !== undefined) {
+      payload.top_p = mergedOptions.top_p;
+    }
 
     const response = await this.client.post('/messages', payload);
     let result = response.data.content[0]?.text || '';
     
     // Clean JSON response if requested
-    const shouldCleanJson = options.clean_json_response ?? this.config.clean_json_response ?? false;
+    const shouldCleanJson = mergedOptions.clean_json_response ?? this.config.clean_json_response ?? false;
     if (shouldCleanJson) {
       result = this.cleanJsonResponse(result);
     }

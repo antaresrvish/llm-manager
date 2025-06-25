@@ -45,25 +45,32 @@ export class OpenAIProvider extends AbstractProvider {
   }
 
   async chat(options: ChatOptions): Promise<string> {
+    // Merge global config parameters with specific options
+    const mergedOptions = this.mergeConfigWithOptions(options);
     const model = this.getCompatibleModel();
     
     const payload: any = {
       model: model,
-      messages: options.messages,
-      temperature: options.temperature || 0.7,
-      max_tokens: options.maxTokens || 1000,
-      stream: options.stream || false
+      messages: mergedOptions.messages,
+      temperature: mergedOptions.temperature || 0.7,
+      max_tokens: mergedOptions.maxTokens || 1000,
+      stream: mergedOptions.stream || false
     };
 
+    // Add top_p if specified
+    if (mergedOptions.top_p !== undefined) {
+      payload.top_p = mergedOptions.top_p;
+    }
+
     // OpenAI structured output support (only for compatible models)
-    if (options.response_schema || this.config.response_schema) {
+    if (mergedOptions.response_schema || this.config.response_schema) {
       // Only models like gpt-4o, gpt-4o-mini support structured output
       if (model.includes('gpt-4o') || model.includes('gpt-3.5') || model === 'gpt-4-turbo') {
         payload.response_format = {
           type: "json_schema",
           json_schema: {
             name: "response",
-            schema: options.response_schema || this.config.response_schema
+            schema: mergedOptions.response_schema || this.config.response_schema
           }
         };
       } else {
@@ -77,7 +84,7 @@ export class OpenAIProvider extends AbstractProvider {
     let result = response.data.choices[0]?.message?.content || '';
     
     // Clean JSON response if requested
-    const shouldCleanJson = options.clean_json_response ?? this.config.clean_json_response ?? false;
+    const shouldCleanJson = mergedOptions.clean_json_response ?? this.config.clean_json_response ?? false;
     if (shouldCleanJson) {
       result = this.cleanJsonResponse(result);
     }

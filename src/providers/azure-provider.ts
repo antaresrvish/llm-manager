@@ -53,22 +53,29 @@ export class AzureProvider extends AbstractProvider {
   }
 
   async chat(options: ChatOptions): Promise<string> {
+    // Merge global config parameters with specific options
+    const mergedOptions = this.mergeConfigWithOptions(options);
     const deploymentName = this.getCompatibleModel();
     
     const payload: any = {
-      messages: options.messages,
-      temperature: options.temperature || 0.7,
-      max_tokens: options.maxTokens || 1000,
-      stream: options.stream || false
+      messages: mergedOptions.messages,
+      temperature: mergedOptions.temperature || 0.7,
+      max_tokens: mergedOptions.maxTokens || 1000,
+      stream: mergedOptions.stream || false
     };
 
+    // Add top_p if specified (Azure OpenAI supports top_p)
+    if (mergedOptions.top_p !== undefined) {
+      payload.top_p = mergedOptions.top_p;
+    }
+
     // Azure structured output support (for compatible models)
-    if (options.response_schema || this.config.response_schema) {
+    if (mergedOptions.response_schema || this.config.response_schema) {
       payload.response_format = {
         type: "json_schema",
         json_schema: {
           name: "response",
-          schema: options.response_schema || this.config.response_schema
+          schema: mergedOptions.response_schema || this.config.response_schema
         }
       };
     }
@@ -81,7 +88,7 @@ export class AzureProvider extends AbstractProvider {
     let result = response.data.choices[0]?.message?.content || '';
     
     // Clean JSON response if requested
-    const shouldCleanJson = options.clean_json_response ?? this.config.clean_json_response ?? false;
+    const shouldCleanJson = mergedOptions.clean_json_response ?? this.config.clean_json_response ?? false;
     if (shouldCleanJson) {
       result = this.cleanJsonResponse(result);
     }

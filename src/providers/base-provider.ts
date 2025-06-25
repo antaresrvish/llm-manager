@@ -49,6 +49,22 @@ export abstract class AbstractProvider implements BaseProvider {
     }
   }
 
+  /**
+   * Merges global config parameters with specific chat options
+   * Global config parameters are used as defaults when not specified in options
+   */
+  protected mergeConfigWithOptions(options: ChatOptions): ChatOptions {
+    return {
+      ...options,
+      temperature: options.temperature ?? this.config.temperature,
+      top_p: options.top_p ?? this.config.top_p,
+      maxTokens: options.maxTokens ?? this.config.max_tokens,
+      clean_json_response: options.clean_json_response ?? this.config.clean_json_response,
+      response_mime_type: options.response_mime_type ?? this.config.response_mime_type,
+      response_schema: options.response_schema ?? this.config.response_schema
+    };
+  }
+
   abstract healthCheck(): Promise<HealthCheckResult>;
   abstract chat(options: ChatOptions): Promise<string>;
   

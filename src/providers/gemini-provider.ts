@@ -39,10 +39,12 @@ export class GeminiProvider extends AbstractProvider {
   }
 
   async chat(options: ChatOptions): Promise<string> {
+    // Merge global config parameters with specific options
+    const mergedOptions = this.mergeConfigWithOptions(options);
     const model = this.getCompatibleModel();
     
     // Convert messages to Gemini format
-    const contents = options.messages.map(msg => ({
+    const contents = mergedOptions.messages.map(msg => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }]
     }));
@@ -50,14 +52,19 @@ export class GeminiProvider extends AbstractProvider {
     const payload: any = {
       contents,
       generationConfig: {
-        temperature: options.temperature || 0.7,
-        maxOutputTokens: options.maxTokens || 1000
+        temperature: mergedOptions.temperature || 0.7,
+        maxOutputTokens: mergedOptions.maxTokens || 1000
       }
     };
 
+    // Add top_p if specified (Gemini supports topP)
+    if (mergedOptions.top_p !== undefined) {
+      payload.generationConfig.topP = mergedOptions.top_p;
+    }
+
     // Add structured output support for Gemini
-    const responseMimeType = options.response_mime_type || this.config.response_mime_type;
-    const responseSchema = options.response_schema || this.config.response_schema;
+    const responseMimeType = mergedOptions.response_mime_type || this.config.response_mime_type;
+    const responseSchema = mergedOptions.response_schema || this.config.response_schema;
     
     if (responseMimeType) {
       payload.generationConfig.responseMimeType = responseMimeType;
@@ -75,7 +82,7 @@ export class GeminiProvider extends AbstractProvider {
     let result = response.data.candidates[0]?.content?.parts[0]?.text || '';
     
     // Clean JSON response if requested
-    const shouldCleanJson = options.clean_json_response ?? this.config.clean_json_response ?? true;
+    const shouldCleanJson = mergedOptions.clean_json_response ?? this.config.clean_json_response ?? true;
     if (shouldCleanJson) {
       result = this.cleanJsonResponse(result);
     }
